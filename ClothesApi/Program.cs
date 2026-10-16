@@ -89,6 +89,14 @@ app.MapPost("/api/auth/login", async (LoginRequest request, ClothesApiContext db
         token_type = "Bearer"
     });
 }).AllowAnonymous();
+app.MapGet("/api/clothes", async (ClothesApiContext db) =>
+    await db.ClothingItems.Include(c => c.ClothingSizes).ToListAsync());
+
+app.MapGet("/api/clothes/search", async (string name, ClothesApiContext db) =>
+    await db.ClothingItems
+        .Include(c => c.ClothingSizes)
+        .Where(c => EF.Functions.Like(c.Name, $"%{name}%"))
+        .ToListAsync());
 app.Run();
 string CreateToken(User user)
 {
