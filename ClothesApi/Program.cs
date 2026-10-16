@@ -156,6 +156,50 @@ app.MapGet("/api/orders/user/{userId:int}", async (int userId, ClothesApiContext
         .ToListAsync());
 }).RequireAuthorization();
 
+app.MapPatch("/api/orders/{id:int}/status", async (int id, ChangeStatusRequest request, ClothesApiContext db) =>
+{
+    var order = await db.Orders.FindAsync(id);
+    if (order is null) return Results.NotFound();
+
+    var allowed = new[] { OrderStatus.New, OrderStatus.Processing, OrderStatus.Shipped, OrderStatus.Delivered, OrderStatus.Cancelled };
+    if (!allowed.Contains(request.Status))
+        return Results.BadRequest("Недопустимый статус");
+
+    order.Status = request.Status;
+    await db.SaveChangesAsync();
+    return Results.Ok(order);
+}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
+app.MapPatch("/api/sizes/{id:int}/stock", async (int id, ChangeStockRequest request, ClothesApiContext db) =>
+{
+    var size = await db.ClothingSizes.FindAsync(id);
+    if (size is null) return Results.NotFound();
+
+    size.Stock = request.Stock;
+    await db.SaveChangesAsync();
+    return Results.Ok(size);
+}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
+app.MapPatch("/api/clothes/{id:int}/remove-from-sale", async (int id, ClothesApiContext db) =>
+{
+    var item = await db.ClothingItems.FindAsync(id);
+    if (item is null) return Results.NotFound();
+
+    item.IsAvailableForSale = false;
+    await db.SaveChangesAsync();
+    return Results.Ok(item);
+}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
+app.MapPatch("/api/clothes/{id:int}/restore", async (int id, ClothesApiContext db) =>
+{
+    var item = await db.ClothingItems.FindAsync(id);
+    if (item is null) return Results.NotFound();
+
+    item.IsAvailableForSale = true;
+    await db.SaveChangesAsync();
+    return Results.Ok(item);
+}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
 app.Run();
 string CreateToken(User user)
 {
@@ -190,3 +234,5 @@ public static class OrderStatus
 
 public record CreateOrderRequest(List<OrderItemDto> Items);
 public record OrderItemDto(int ClothingItemId, int ClothingSizeId, int Quantity);
+public record ChangeStatusRequest(string Status);
+public record ChangeStockRequest(int Stock);
