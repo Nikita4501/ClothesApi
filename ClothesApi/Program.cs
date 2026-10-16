@@ -134,6 +134,28 @@ app.MapPost("/api/orders", async (CreateOrderRequest request, ClothesApiContext 
     return Results.Created($"/api/orders/{order.Id}", order);
 }).RequireAuthorization();
 
+app.MapGet("/api/orders/status/{status}", async (string status, ClothesApiContext db) =>
+    await db.Orders
+        .Where(o => o.Status == status)
+        .Include(o => o.User)
+        .Include(o => o.OrderItems).ThenInclude(i => i.ClothingItem)
+        .Include(o => o.OrderItems).ThenInclude(i => i.ClothingSize)
+        .ToListAsync())
+    .RequireAuthorization();
+
+app.MapGet("/api/orders/user/{userId:int}", async (int userId, ClothesApiContext db, ClaimsPrincipal user) =>
+{
+    var currentUserId = int.Parse(user.FindFirst("sub")!.Value);
+    if (!user.IsInRole("Manager") && userId != currentUserId)
+        return Results.Forbid();
+
+    return Results.Ok(await db.Orders
+        .Where(o => o.UserId == userId)
+        .Include(o => o.OrderItems).ThenInclude(i => i.ClothingItem)
+        .Include(o => o.OrderItems).ThenInclude(i => i.ClothingSize)
+        .ToListAsync());
+}).RequireAuthorization();
+
 app.Run();
 string CreateToken(User user)
 {
